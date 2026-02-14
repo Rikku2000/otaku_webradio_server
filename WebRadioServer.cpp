@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <SDL.h>
 #include <SDL_mixer.h>
-#include "lame.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -37,9 +36,18 @@
 #include <fcntl.h>
 #endif
 
+#ifdef _WIN32
+#include "lame.h"
 #ifdef HTTP_SSL
 #include <ssl.h>
 #include <err.h>
+#endif
+#else
+#include "lame/lame.h"
+#ifdef HTTP_SSL
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#endif
 #endif
 
 #define BUFFER 2048
@@ -370,7 +378,11 @@ int scan_folder(char **list,int *count,const char *folder,const char *ext)
 
 void parse_time(const char *filename,int *hour,int *min)
 {
-    *hour=0; *min=0; const char *base = strrchr(filename,_WIN32?'\\':'/');
+#ifdef _WIN32
+    *hour=0; *min=0; const char *base = strrchr(filename, '\\');
+#else
+    *hour=0; *min=0; const char *base = strrchr(filename, '/');
+#endif
     if(base) base++; else base=filename;
     sscanf(base,"%d_%d",&(*hour),&(*min));
 }
@@ -502,7 +514,11 @@ int get_mp3_duration(const char *filename) {
 
 void get_display_name(const char *path, char *out, int max)
 {
-    const char *base = strrchr(path, _WIN32 ? '\\' : '/');
+#ifdef _WIN32
+    const char *base = strrchr(path, '\\');
+#else
+    const char *base = strrchr(path, '/');
+#endif
     if(base) base++; else base = path;
     strncpy(out, base, max-1);
     out[max-1] = '\0';
@@ -1100,8 +1116,12 @@ int main(int argc, char **argv) {
 	}
 	int do_shuffle=get_shuffle_setting();
     scan_folder(wav_files,&wav_count,notif_folder,".wav");
-    if(enable_scripts) scan_folder(script_files,&script_count,notif_folder,_WIN32?".bat":".sh");
 
+#ifdef _WIN32
+    if(enable_scripts) scan_folder(script_files,&script_count,notif_folder,".bat");
+#else
+    if(enable_scripts) scan_folder(script_files,&script_count,notif_folder,".sh");
+#endif
     logmsg(LOG_GREEN, 1, "Loaded %d MP3s, %d WAVs, %d scripts\n",music_count,wav_count,script_count);
 
     lame=lame_init();
